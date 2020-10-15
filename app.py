@@ -228,18 +228,69 @@ def request_device_readings_quartiles(device_uuid):
     # Return the JSON
     return eljson, 200
 
-"""
-@app.route('<fill-this-in>', methods = ['GET'])
-def request_readings_summary():
-    This endpoint allows clients to GET a full summary
-    of all sensor data in the database per device.
 
-    Optional Query Parameters
-    * type -> The type of sensor value a client is looking for
-    * start -> The epoch start time for a sensor being created
-    * end -> The epoch end time for a sensor being created
+@app.route('/devices/<string:device_uuid>/readings/summary/', methods = ['GET'])
+def request_readings_summary(device_uuid):
+# Set the db that we want and open the connection
+    if app.config['TESTING']:
+        conn = sqlite3.connect('test_database.db')
+    else:
+        conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+     # Execute the query
+    cur.execute('''
+    select * from
+    (
+        SELECT AVG(value) FROM readings where value < (
+            SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                SELECT COUNT(*) FROM readings where device_uuid="{}"
+            ) % 2 OFFSET (
+                SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
+            )
+        )
+    ) as T1
+    ,
+    (
+        SELECT AVG(value) FROM readings where value > (
+        SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+            SELECT COUNT(*) FROM readings where device_uuid="{}"
+        ) % 2 OFFSET (
+            SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
+        )
+    )
+     ) as T2
+    ,
+    (
+        SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+            SELECT COUNT(*) FROM readings where device_uuid="{}"
+        ) % 2 OFFSET (
+            SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
+        )
+    )  as T3
+    ,
+    (
+        (
+            SELECT device_uuid, COUNT(*), MAX(value), MIN(value) FROM readings where device_uuid="{}"
+        ) as T4
+    )
+    '''.format(
+        device_uuid, 
+        device_uuid, 
+        device_uuid, 
+        device_uuid, 
+        device_uuid, 
+        device_uuid, 
+        device_uuid, 
+        device_uuid, 
+        device_uuid, 
+        device_uuid
+    ))
+    rows = cur.fetchall()
+    eljson = jsonify([dict(zip(['quartile_1', 'quartile_3', 'median', 'device_uuid', 'count', 'max', 'min'], row)) for row in rows])
+    # Return the JSON
+    return eljson, 200
 
-    return 'Endpoint is not implemented', 501
-"""
+    
 if __name__ == '__main__':
     app.run()
