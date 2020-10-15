@@ -256,6 +256,78 @@ class SensorRoutesTestCases(unittest.TestCase):
         ))
         row = cur.fetchall()
         #Compare API value with DB value
+        print(row[0])
+        self.assertTrue(row[0][0] == json.loads(request.data)[0]['quartile_1'])
+        self.assertTrue(row[0][1] == json.loads(request.data)[0]['quartile_3'])
+        self.assertTrue(row[0][2] == json.loads(request.data)[0]['median'])
+
+    def test_device_readings_summary(self):
+        """
+        This test should be implemented. The goal is to test that
+        we are able to query for a device's 1st and 3rd quartile
+        sensor reading value.
+        """
+        request = self.client().get('/devices/{}/readings/summary/'.format(self.device_uuid))
+        
+         # Then we should receive a 200
+        self.assertEqual(request.status_code, 200)
+
+        # And the response data should have three sensor readings
+        self.assertTrue(len(json.loads(request.data)) == 1)
+
+        #Get DB Max value
+        conn = sqlite3.connect('test_database.db')
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute('''
+        select * from
+        (
+            SELECT AVG(value) FROM readings where value < (
+                SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                    SELECT COUNT(*) FROM readings where device_uuid="{}"
+                ) % 2 OFFSET (
+                    SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
+                )
+            )
+        ) as T1
+        ,
+        (
+            SELECT AVG(value) FROM readings where value > (
+            SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                SELECT COUNT(*) FROM readings where device_uuid="{}"
+            ) % 2 OFFSET (
+                SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
+            )
+        )
+        ) as T2
+        ,
+        (
+            SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                SELECT COUNT(*) FROM readings where device_uuid="{}"
+            ) % 2 OFFSET (
+                SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
+            )
+        )  as T3
+        ,
+        (
+            (
+                SELECT device_uuid, COUNT(*), MAX(value), MIN(value) FROM readings where device_uuid="{}"
+            ) as T4
+        )
+        '''.format(
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid
+        ))
+        row = cur.fetchall()
+        #Compare API value with DB value
         self.assertTrue(row[0][0] == json.loads(request.data)[0]['quartile_1'])
         self.assertTrue(row[0][1] == json.loads(request.data)[0]['quartile_3'])
         self.assertTrue(row[0][2] == json.loads(request.data)[0]['median'])
