@@ -58,6 +58,33 @@ def request_device_readings(device_uuid):
 
         # Return the JSON
         return jsonify([dict(zip(['device_uuid', 'type', 'value', 'date_created'], row)) for row in rows]), 200
+        
+@app.route('/devices/<string:device_uuid>/readings/min/', methods = ['GET'])
+def request_device_readings_min(device_uuid):
+    """
+    This endpoint allows clients to GET the min sensor reading for a device.
+
+    Mandatory Query Parameters:
+    * type -> The type of sensor value a client is looking for
+
+    Optional Query Parameters
+    * start -> The epoch start time for a sensor being created
+    * end -> The epoch end time for a sensor being created
+    """
+
+    # Set the db that we want and open the connection
+    if app.config['TESTING']:
+        conn = sqlite3.connect('test_database.db')
+    else:
+        conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+     # Execute the query
+    cur.execute('select min(value) from readings where device_uuid="{}"'.format(device_uuid))
+    rows = cur.fetchall()
+
+    # Return the JSON
+    return jsonify([dict(zip(['value'], row)) for row in rows]), 200
 
 @app.route('/devices/<string:device_uuid>/readings/max/', methods = ['GET'])
 def request_device_readings_max(device_uuid):
@@ -157,7 +184,8 @@ def request_device_readings_quartiles(device_uuid):
     * start -> The epoch start time for a sensor being created
     * end -> The epoch end time for a sensor being created
     """
-# Set the db that we want and open the connection
+
+    # Set the db that we want and open the connection
     if app.config['TESTING']:
         conn = sqlite3.connect('test_database.db')
     else:
@@ -174,7 +202,7 @@ def request_device_readings_quartiles(device_uuid):
             ) % 2 OFFSET (
                 SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
             )
-        ) 
+        )
     ) as T1
     ,
     (
@@ -194,8 +222,6 @@ def request_device_readings_quartiles(device_uuid):
             SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
         )
     )  as T3
-    
-
     '''.format(device_uuid, device_uuid, device_uuid, device_uuid, device_uuid, device_uuid, device_uuid, device_uuid, device_uuid))
     rows = cur.fetchall()
     eljson = jsonify([dict(zip(['quartile_1', 'quartile_3', 'median'], row)) for row in rows])

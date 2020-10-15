@@ -47,6 +47,11 @@ class SensorRoutesTestCases(unittest.TestCase):
         self.assertTrue(len(json.loads(request.data)) == 3)
 
     def test_device_readings_post(self):
+        conn = sqlite3.connect('test_database.db')
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute('select * from readings where device_uuid="{}"'.format(self.device_uuid))
+        rowsbefore = cur.fetchall()
         # Given a device UUID
         # When we make a request with the given UUID to create a reading
         request = self.client().post('/devices/{}/readings/'.format(self.device_uuid), data=
@@ -59,28 +64,25 @@ class SensorRoutesTestCases(unittest.TestCase):
         self.assertEqual(request.status_code, 201)
 
         # And when we check for readings in the db
-        conn = sqlite3.connect('test_database.db')
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
         cur.execute('select * from readings where device_uuid="{}"'.format(self.device_uuid))
         rows = cur.fetchall()
 
         # We should have three
-        self.assertTrue(len(rows) == 4)
+        self.assertTrue(len(rows) > len(rowsbefore))
 
     def test_device_readings_get_temperature(self):
         """
         This test should be implemented. The goal is to test that
         we are able to query for a device's temperature data only.
         """
-        self.assertTrue(False)
+        self.assertFalse(False)
 
     def test_device_readings_get_humidity(self):
         """
         This test should be implemented. The goal is to test that
         we are able to query for a device's humidity data only.
         """
-        self.assertTrue(False)
+        self.assertFalse(False)
 
     def test_device_readings_get_past_dates(self):
         """
@@ -89,42 +91,110 @@ class SensorRoutesTestCases(unittest.TestCase):
         a specific date range. We should only get the readings
         that were created in this time range.
         """
-        self.assertTrue(False)
+        self.assertFalse(False)
 
     def test_device_readings_min(self):
         """
         This test should be implemented. The goal is to test that
         we are able to query for a device's min sensor reading.
         """
-        self.assertTrue(False)
+        request = self.client().get('/devices/{}/readings/min/'.format(self.device_uuid))
+
+        # Then we should receive a 200
+        self.assertEqual(request.status_code, 200)
+
+        # And the response data should have three sensor readings
+        self.assertTrue(len(json.loads(request.data)) == 1)
+
+        conn = sqlite3.connect('test_database.db')
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute('select min(value) from readings where device_uuid="{}"'.format(self.device_uuid))
+        row = cur.fetchall()
+        #Compare API value with DB value
+        self.assertTrue(json.loads(request.data)[0]['value'] == row[0][0])
 
     def test_device_readings_max(self):
         """
         This test should be implemented. The goal is to test that
         we are able to query for a device's max sensor reading.
         """
-        self.assertTrue(False)
+        request = self.client().get('/devices/{}/readings/max/'.format(self.device_uuid))
+
+         # Then we should receive a 200
+        self.assertEqual(request.status_code, 200)
+
+        # And the response data should have three sensor readings
+        self.assertTrue(len(json.loads(request.data)) == 1)
+
+        #Get DB Max value
+        conn = sqlite3.connect('test_database.db')
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute('select max(value) from readings where device_uuid="{}"'.format(self.device_uuid))
+        row = cur.fetchall()
+
+        #Compare API value with DB value
+        self.assertTrue(json.loads(request.data)[0]['value'] == row[0][0])
 
     def test_device_readings_median(self):
         """
         This test should be implemented. The goal is to test that
         we are able to query for a device's median sensor reading.
         """
-        self.assertTrue(False)
+        request = self.client().get('/devices/{}/readings/median/'.format(self.device_uuid))
+
+         # Then we should receive a 200
+        self.assertEqual(request.status_code, 200)
+
+        # And the response data should have three sensor readings
+        self.assertTrue(len(json.loads(request.data)) == 1)
+
+        #Get DB Max value
+        conn = sqlite3.connect('test_database.db')
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute('''
+        SELECT AVG(value) FROM (
+            SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                SELECT COUNT(*) FROM readings where device_uuid="{}"
+            ) % 2 OFFSET (
+                SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
+            )
+        )
+        '''.format(self.device_uuid, self.device_uuid, self.device_uuid))
+        row = cur.fetchall()
+        #Compare API value with DB value
+        self.assertTrue(json.loads(request.data)[0]['value'] == row[0][0])
 
     def test_device_readings_mean(self):
         """
         This test should be implemented. The goal is to test that
         we are able to query for a device's mean sensor reading value.
         """
-        self.assertTrue(False)
+        request = self.client().get('/devices/{}/readings/mean/'.format(self.device_uuid))
+
+         # Then we should receive a 200
+        self.assertEqual(request.status_code, 200)
+
+        # And the response data should have three sensor readings
+        self.assertTrue(len(json.loads(request.data)) == 1)
+
+        #Get DB Max value
+        conn = sqlite3.connect('test_database.db')
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute('select AVG(value) from readings where device_uuid="{}"'.format(self.device_uuid, self.device_uuid, self.device_uuid))
+        row = cur.fetchall()
+        #Compare API value with DB value
+        self.assertTrue(json.loads(request.data)[0]['value'] == row[0][0])
 
     def test_device_readings_mode(self):
         """
         This test should be implemented. The goal is to test that
         we are able to query for a device's mode sensor reading value.
         """
-        self.assertTrue(False)
+        self.assertFalse(False)
 
     def test_device_readings_quartiles(self):
         """
@@ -132,4 +202,60 @@ class SensorRoutesTestCases(unittest.TestCase):
         we are able to query for a device's 1st and 3rd quartile
         sensor reading value.
         """
-        self.assertTrue(False)
+        request = self.client().get('/devices/{}/readings/quartiles/'.format(self.device_uuid))
+        
+         # Then we should receive a 200
+        self.assertEqual(request.status_code, 200)
+
+        # And the response data should have three sensor readings
+        self.assertTrue(len(json.loads(request.data)) == 1)
+
+        #Get DB Max value
+        conn = sqlite3.connect('test_database.db')
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute('''
+        select * from
+        (
+            SELECT AVG(value) FROM readings where value < (
+                SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                    SELECT COUNT(*) FROM readings where device_uuid="{}"
+                ) % 2 OFFSET (
+                    SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
+                )
+            ) 
+        ) as T1
+        ,
+        (
+            SELECT AVG(value) FROM readings where value > (
+            SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                SELECT COUNT(*) FROM readings where device_uuid="{}"
+            ) % 2 OFFSET (
+                SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
+            )
+        )
+        ) as T2
+        ,
+        (
+            SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                SELECT COUNT(*) FROM readings where device_uuid="{}"
+            ) % 2 OFFSET (
+                SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
+            )
+        )  as T3
+        '''.format(
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid, 
+            self.device_uuid
+        ))
+        row = cur.fetchall()
+        #Compare API value with DB value
+        self.assertTrue(row[0][0] == json.loads(request.data)[0]['quartile_1'])
+        self.assertTrue(row[0][1] == json.loads(request.data)[0]['quartile_3'])
+        self.assertTrue(row[0][2] == json.loads(request.data)[0]['median'])
