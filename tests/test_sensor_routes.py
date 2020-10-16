@@ -256,7 +256,7 @@ class SensorRoutesTestCases(unittest.TestCase):
         ))
         row = cur.fetchall()
         #Compare API value with DB value
-        print(row[0])
+        
         self.assertTrue(row[0][0] == json.loads(request.data)[0]['quartile_1'])
         self.assertTrue(row[0][1] == json.loads(request.data)[0]['quartile_3'])
         self.assertTrue(row[0][2] == json.loads(request.data)[0]['median'])
@@ -327,6 +327,7 @@ class SensorRoutesTestCases(unittest.TestCase):
             self.device_uuid
         ))
         row = cur.fetchall()
+        print(row[0])
         #Compare API value with DB value
         self.assertTrue(row[0][0] == json.loads(request.data)[0]['quartile_1'])
         self.assertTrue(row[0][1] == json.loads(request.data)[0]['quartile_3'])

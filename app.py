@@ -186,47 +186,205 @@ def request_device_readings_quartiles(device_uuid):
     """
 
     # Set the db that we want and open the connection
+    start = request.args.get('start')
+    end = request.args.get('end')
     if app.config['TESTING']:
         conn = sqlite3.connect('test_database.db')
     else:
         conn = sqlite3.connect('database.db')
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-     # Execute the query
-    cur.execute('''
-    select * from
-    (
-        SELECT AVG(value) FROM readings where value < (
+    #check for start
+    if start != None and end != None:
+    # Execute the query
+        cur.execute('''
+        select * from
+        (
+            SELECT AVG(value) FROM readings where value < (
+                SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                    SELECT COUNT(*) FROM readings where device_uuid="{}" and date_created>"{}" and date_created<"{}" 
+                ) % 2 OFFSET (
+                    SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}" and date_created>"{}" and date_created<"{}" 
+                )
+            )
+        ) as T1
+        ,
+        (
+            SELECT AVG(value) FROM readings where value > (
+            SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                SELECT COUNT(*) FROM readings where device_uuid="{}" and date_created>"{}" and date_created<"{}"  
+            ) % 2 OFFSET (
+                SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}" and date_created>"{}" and date_created<"{}" 
+            )
+        )
+        ) as T2
+        ,
+        (
+            SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                SELECT COUNT(*) FROM readings where device_uuid="{}" and date_created>"{}" and date_created<"{}" 
+            ) % 2 OFFSET (
+                SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}" and date_created>"{}" and date_created<"{}"  
+            )
+        )  as T3
+        '''.format(
+            device_uuid, 
+            device_uuid, 
+            start, end, 
+            device_uuid, 
+            start, end, 
+            device_uuid, 
+            device_uuid, 
+            start, end,
+            device_uuid, 
+            start, end,
+            device_uuid, 
+            device_uuid, 
+            start, end,
+            device_uuid, 
+            start, end
+            ))
+        rows = cur.fetchall()
+        eljson = jsonify([dict(zip(['quartile_1', 'quartile_3', 'median'], row)) for row in rows])
+        # Return the JSON
+        return eljson, 200
+    if start != None and end == None:
+    # Execute the query
+        cur.execute('''
+        select * from
+        (
+            SELECT AVG(value) FROM readings where value < (
+                SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                    SELECT COUNT(*) FROM readings where device_uuid="{}" and date_created>"{}"  
+                ) % 2 OFFSET (
+                    SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}" and date_created>"{}" 
+                )
+            )
+        ) as T1
+        ,
+        (
+            SELECT AVG(value) FROM readings where value > (
+            SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                SELECT COUNT(*) FROM readings where device_uuid="{}" and date_created>"{}" 
+            ) % 2 OFFSET (
+                SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}" and date_created>"{}"
+            )
+        )
+        ) as T2
+        ,
+        (
+            SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                SELECT COUNT(*) FROM readings where device_uuid="{}" and date_created>"{}"
+            ) % 2 OFFSET (
+                SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}" and date_created>"{}"
+            )
+        )  as T3
+        '''.format(
+            device_uuid, 
+            device_uuid, 
+            start, 
+            device_uuid, 
+            start,
+            device_uuid, 
+            device_uuid, 
+            start,
+            device_uuid, 
+            start,
+            device_uuid, 
+            device_uuid, 
+            start,
+            device_uuid, 
+            start,
+            ))
+        rows = cur.fetchall()
+        eljson = jsonify([dict(zip(['quartile_1', 'quartile_3', 'median'], row)) for row in rows])
+        # Return the JSON
+        return eljson, 200
+    if start == None and end != None:
+    # Execute the query
+        cur.execute('''
+        select * from
+        (
+            SELECT AVG(value) FROM readings where value < (
+                SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                    SELECT COUNT(*) FROM readings where device_uuid="{}" and date_created<"{}" 
+                ) % 2 OFFSET (
+                    SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}" and date_created<"{}" 
+                )
+            )
+        ) as T1
+        ,
+        (
+            SELECT AVG(value) FROM readings where value > (
+            SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                SELECT COUNT(*) FROM readings where device_uuid="{}" and date_created<"{}"  
+            ) % 2 OFFSET (
+                SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}" and date_created<"{}" 
+            )
+        )
+        ) as T2
+        ,
+        (
+            SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                SELECT COUNT(*) FROM readings where device_uuid="{}" and date_created<"{}" 
+            ) % 2 OFFSET (
+                SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}" and date_created<"{}"  
+            )
+        )  as T3
+        '''.format(
+            device_uuid, 
+            device_uuid, 
+            end, 
+            device_uuid, 
+            end, 
+            device_uuid, 
+            device_uuid, 
+            end,
+            device_uuid, 
+            end,
+            device_uuid, 
+            device_uuid, 
+            end,
+            device_uuid, end
+            ))
+        rows = cur.fetchall()
+        eljson = jsonify([dict(zip(['quartile_1', 'quartile_3', 'median'], row)) for row in rows])
+        # Return the JSON
+        return eljson, 200
+    if start == None and end == None:
+        cur.execute('''
+        select * from
+        (
+            SELECT AVG(value) FROM readings where value < (
+                SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                    SELECT COUNT(*) FROM readings where device_uuid="{}"
+                ) % 2 OFFSET (
+                    SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
+                )
+            )
+        ) as T1
+        ,
+        (
+            SELECT AVG(value) FROM readings where value > (
             SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
                 SELECT COUNT(*) FROM readings where device_uuid="{}"
             ) % 2 OFFSET (
                 SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
             )
         )
-    ) as T1
-    ,
-    (
-        SELECT AVG(value) FROM readings where value > (
-        SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
-            SELECT COUNT(*) FROM readings where device_uuid="{}"
-        ) % 2 OFFSET (
-            SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
-        )
-    )
-     ) as T2
-    ,
-    (
-        SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
-            SELECT COUNT(*) FROM readings where device_uuid="{}"
-        ) % 2 OFFSET (
-            SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
-        )
-    )  as T3
-    '''.format(device_uuid, device_uuid, device_uuid, device_uuid, device_uuid, device_uuid, device_uuid, device_uuid, device_uuid))
-    rows = cur.fetchall()
-    eljson = jsonify([dict(zip(['quartile_1', 'quartile_3', 'median'], row)) for row in rows])
-    # Return the JSON
-    return eljson, 200
+        ) as T2
+        ,
+        (
+            SELECT value FROM readings where device_uuid="{}" ORDER BY value LIMIT 2 - (
+                SELECT COUNT(*) FROM readings where device_uuid="{}"
+            ) % 2 OFFSET (
+                SELECT (COUNT(*) - 1) / 2  FROM readings where device_uuid="{}"
+            )
+        )  as T3
+        '''.format(device_uuid, device_uuid, device_uuid, device_uuid, device_uuid, device_uuid, device_uuid, device_uuid, device_uuid))
+        rows = cur.fetchall()
+        eljson = jsonify([dict(zip(['quartile_1', 'quartile_3', 'median'], row)) for row in rows])
+        # Return the JSON
+        return eljson, 200
 
 
 @app.route('/devices/<string:device_uuid>/readings/summary/', methods = ['GET'])
